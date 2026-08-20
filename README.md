@@ -203,10 +203,13 @@ creates a GitHub release containing:
 
 The changelist contains commits since the previous tag, is used as the GitHub
 release description, and is also included inside both source archives as
-`CHANGELOG-RELEASE.md`. The release workflow requires the same Android signing,
-Firebase, FAA-service, and RevenueCat repository secrets used by the existing
-Android workflow. An openAIP API key is deliberately not a build secret; each
-user supplies and securely stores a personal key in the application.
+`CHANGELOG-RELEASE.md`. The release workflow requires the Android signing,
+FAA-service, and RevenueCat repository secrets used by the existing Android
+workflow. It deliberately
+builds with non-production Firebase placeholders, so no Firebase login or
+Firebase service-account secret is required and Firebase-backed cloud features
+are unavailable in the EU artifact. An openAIP API key is likewise not a build
+secret; each user supplies and securely stores a personal key in the application.
 
 Microsoft version scheme: pubspec.yaml (versions go like 1.0.9.0, last digit must be 0)
 
