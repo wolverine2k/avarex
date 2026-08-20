@@ -180,23 +180,53 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Sign release APK
-        id: sign_apk
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: build/app/outputs/apk/release
-          signingKeyBase64: ${{ secrets.KEY_STORE }}
-          alias: ${{ secrets.KEY_STORE_ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASS }}
-          keyPassword: ${{ secrets.KEY_STORE_PASS }}
-        env:
-          BUILD_TOOLS_VERSION: '34.0.0'
-
-      - name: Name release APK
+      - name: Sign and name release APK
         shell: bash
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.KEY_STORE }}
+          KEY_ALIAS: ${{ secrets.KEY_STORE_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASS }}
+          KEY_PASSWORD: ${{ secrets.KEY_STORE_PASS }}
         run: |
           set -euo pipefail
-          cp "${{ steps.sign_apk.outputs.signedReleaseFile }}" "dist/$APK_NAME"
+
+          for secret_name in SIGNING_KEY_BASE64 KEY_ALIAS KEYSTORE_PASSWORD KEY_PASSWORD; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "Required Android signing secret $secret_name is not set."
+              exit 1
+            fi
+          done
+
+          RELEASE_APK="build/app/outputs/apk/release/app-release.apk"
+          if [[ ! -f "$RELEASE_APK" ]]; then
+            echo "Expected release APK was not generated at $RELEASE_APK"
+            find build/app/outputs -type f -name '*.apk' -print || true
+            exit 1
+          fi
+
+          BUILD_TOOLS_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/build-tools/34.0.0"
+          ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
+          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          if [[ ! -x "$ZIPALIGN" || ! -x "$APKSIGNER" ]]; then
+            echo "Android build-tools 34.0.0 signing tools were not found in $BUILD_TOOLS_DIR"
+            find "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}/build-tools" -maxdepth 2 -type f \( -name zipalign -o -name apksigner \) -print || true
+            exit 1
+          fi
+
+          KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release.jks"
+          ALIGNED_APK="dist/AvareX-EU-$TAG-aligned.apk"
+          printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode > "$KEYSTORE"
+
+          "$ZIPALIGN" -f -p 4 "$RELEASE_APK" "$ALIGNED_APK"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "dist/$APK_NAME" \
+            "$ALIGNED_APK"
+          "$APKSIGNER" verify --verbose --print-certs "dist/$APK_NAME"
+          rm -f "$KEYSTORE" "$ALIGNED_APK"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
