@@ -1,6 +1,8 @@
 import 'package:avaremp/chart/chart.dart';
 import 'package:avaremp/documents_screen.dart';
 import 'package:avaremp/data/settings_cache_provider.dart';
+import 'package:avaremp/ofm/ofm_constants.dart';
+import 'package:avaremp/openaip/openaip_constants.dart';
 
 class AppSettings {
 
@@ -141,17 +143,29 @@ class AppSettings {
   }
 
   List<String> getLayers() {
-    return (provider.getValue("key-layers-v52", defaultValue:
-        "Nav,Circles,Chart,Topo,Vector Map,CAP Grid,Elevation,Weather,TFR,Game TFR,Plate,Traffic,Obstacles,Tape,GeoJSON,PFD,Tracks") as String).split(",");
+    final legacyLayers = provider.getValue("key-layers-v54", defaultValue:
+        "Nav,Circles,Chart,Topo,Vector Map,${OfmConstants.layerName},${OfmConstants.dataLayerName},CAP Grid,Elevation,Weather,TFR,Game TFR,Plate,Traffic,Obstacles,Tape,GeoJSON,PFD,Tracks") as String;
+    final layers = (provider.getValue("key-layers-v55", defaultValue: legacyLayers) as String).split(",");
+    final legacy = layers.indexOf(OfmConstants.legacyLayerName);
+    if (legacy >= 0) layers[legacy] = OfmConstants.layerName;
+    if (!layers.contains(OpenAipConstants.dataLayerName)) {
+      final ofmData = layers.indexOf(OfmConstants.dataLayerName);
+      layers.insert(ofmData < 0 ? layers.length : ofmData + 1, OpenAipConstants.dataLayerName);
+    }
+    return layers;
   }
 
   List<double> getLayersOpacity() {
-    return (provider.getValue("key-layers-opacity-v52", defaultValue:
-        "1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0") as String).split(",").map((String e) => double.parse(e)).toList();
+    final legacy = provider.getValue("key-layers-opacity-v54", defaultValue:
+        "1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0") as String;
+    final opacity = (provider.getValue("key-layers-opacity-v55", defaultValue: legacy) as String)
+        .split(",").map((String e) => double.parse(e)).toList();
+    if (opacity.length < getLayers().length) opacity.insert(7, 0);
+    return opacity;
   }
 
   void setLayersOpacity(List<double> opacity) {
-    provider.setString("key-layers-opacity-v52", opacity.map((double e) => e.toString()).toList().join(","));
+    provider.setString("key-layers-opacity-v55", opacity.map((double e) => e.toString()).toList().join(","));
   }
 
   void setCurrentPlateAirport(String name) {

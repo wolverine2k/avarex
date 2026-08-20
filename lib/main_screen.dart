@@ -301,6 +301,26 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                       ),
                       _buildMenuItem(
                         context,
+                        icon: MdiIcons.mapMarkerPath,
+                        title: "OpenFlightMaps",
+                        subtitle: "Regional OFM VFR map layers",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/ofm_download');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.public,
+                        title: "openAIP",
+                        subtitle: "Supplementary EU airports, navaids & obstacles",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/openaip');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
                         icon: MdiIcons.fileDocument,
                         title: "Documents",
                         subtitle: "Weather, manuals, notes, tracks",

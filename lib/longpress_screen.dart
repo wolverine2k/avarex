@@ -1,7 +1,8 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:avaremp/ai/ai_screen.dart';
 import 'package:avaremp/business/airport_businesses_gate.dart';
-import 'package:avaremp/data/main_database_helper.dart';
+import 'data/main_database_helper.dart';
+import 'data/aeronautical_database.dart';
 import 'package:avaremp/data/user_database_helper.dart';
 import 'package:avaremp/utils/geo_calculations.dart';
 import 'package:avaremp/main_screen.dart';
@@ -24,6 +25,7 @@ import 'destination/airport.dart';
 import 'constants.dart';
 import 'package:avaremp/destination/destination.dart';
 import 'weather/metar.dart';
+import 'ofm/ofm_constants.dart';
 
 class LongPressScreen extends StatefulWidget {
   final List<Destination> destinations;
@@ -52,7 +54,7 @@ class LongPressFuture {
 
   Future<void> _getAll() async {
     show = await DestinationFactory.make(_destination);
-    navs = await MainDatabaseHelper.db.findNearestVOR(_destination.coordinate);
+    navs = await AeronauticalDatabase.instance.findNearestVOR(_destination.coordinate);
     saa = await MainDatabaseHelper.db.getSaa(_destination.coordinate);
   }
 
@@ -111,7 +113,60 @@ class LongPressScreenState extends State<LongPressScreen> {
     List<Widget?> pages = List.generate(labels.length, (index) => null);
     String label = "$facility (${showDestination.locationID}) $direction${showDestination.elevation != null ? "; EL ${showDestination.elevation!.round()}" : ""}";
 
-    if (showDestination is AirportDestination) {
+    if (showDestination.source == 'OFM' || showDestination.source == 'openAIP') {
+      final isOpenAip = showDestination.source == 'openAIP';
+      pages[labels.indexOf("Main")] = ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          ListTile(
+            title: Text(showDestination.facilityName),
+            subtitle: Text('${showDestination.locationID} • ${showDestination.source} ${showDestination.sourceRegion} ${showDestination.sourceCycle}'),
+          ),
+          Text('Coordinates: ${showDestination.coordinate.latitude.toStringAsFixed(6)}, ${showDestination.coordinate.longitude.toStringAsFixed(6)}'),
+          if (showDestination.elevation != null) Text('Elevation: ${showDestination.elevation!.round()} ft'),
+          if (showDestination is AirportDestination) ...[
+            const SizedBox(height: 12),
+            Text('Runways', style: Theme.of(context).textTheme.titleMedium),
+            for (final runway in showDestination.runways)
+              Text('${runway['RunwayID']} • ${(runway['Length'] as num).round()} x ${(runway['Width'] as num).round()} ft • ${runway['Surface']}'),
+            const SizedBox(height: 12),
+            Text('Communications', style: Theme.of(context).textTheme.titleMedium),
+            for (final frequency in showDestination.frequencies)
+              Text('${frequency['Use']}: ${frequency['Frequency']}'),
+          ],
+          const SizedBox(height: 16),
+          Text(isOpenAip ? 'Data © openAIP, CC BY-NC 4.0' : OfmConstants.attribution,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(isOpenAip
+              ? 'openAIP is community-maintained supplementary data and is not certified for primary navigation or flight planning.'
+              : OfmConstants.disclaimer),
+          if (!isOpenAip) const Text(OfmConstants.corrections),
+        ],
+      );
+      if (showDestination is AirportDestination) {
+        final Metar? metar = Storage().metar.get(showDestination.locationID) as Metar?;
+        final Taf? taf = Storage().taf.get(showDestination.locationID) as Taf?;
+        if (metar != null || taf != null) {
+          pages[labels.indexOf("METAR")] = ListView(
+            padding: const EdgeInsets.all(8),
+            children: [
+              if (metar != null) Card(child: ListTile(
+                leading: metar.getIcon(),
+                title: const Text('METAR'),
+                subtitle: Text(metar.text),
+              )),
+              if (taf != null) Card(child: ListTile(
+                leading: taf.getIcon(),
+                title: const Text('TAF'),
+                subtitle: Text(taf.text),
+              )),
+            ],
+          );
+        }
+      }
+    }
+
+    if (showDestination.source != 'OFM' && showDestination.source != 'openAIP' && showDestination is AirportDestination) {
 
       pages[labels.indexOf("Main")] = Airport.parse(showDestination);
 

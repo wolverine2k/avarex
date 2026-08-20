@@ -21,6 +21,9 @@ import 'io/io_screen.dart';
 import 'main_screen.dart';
 import 'scheduler/scheduler_screen.dart';
 import 'onboarding_screen.dart';
+import 'ofm/ofm_download_screen.dart';
+import 'ofm/ofm_chart_library_screen.dart';
+import 'openaip/openaip_download_screen.dart';
 import 'services/backup_screen.dart';
 
 class CustomWidgetsBinding extends WidgetsFlutterBinding {
@@ -68,6 +71,9 @@ class MainApp extends StatelessWidget {
                   ? const OnBoardingScreen()
                   : const MainScreen(),
               '/download': (context) => const DownloadScreen(),
+              '/ofm_download': (context) => const OfmDownloadScreen(),
+              '/ofm_charts': (context) => const OfmChartLibraryScreen(),
+              '/openaip': (context) => const OpenAipDownloadScreen(),
               '/documents': (context) => const DocumentsScreen(),
               '/checklists': (context) => const ChecklistScreen(),
               '/performance': (context) => const AircraftPerformanceScreen(),

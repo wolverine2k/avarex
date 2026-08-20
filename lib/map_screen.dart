@@ -17,10 +17,22 @@ import 'package:avaremp/gdl90/nexrad_cache.dart';
 import 'package:avaremp/gdl90/traffic_cache.dart';
 import 'package:avaremp/utils/compass_rose.dart';
 import 'package:avaremp/utils/geo_calculations.dart';
-import 'package:avaremp/data/main_database_helper.dart';
+
 import 'package:avaremp/io/gps_recorder.dart';
 import 'package:avaremp/instruments/instrument_list.dart';
 import 'package:avaremp/instruments/pfd_painter.dart';
+import 'package:avaremp/ofm/ofm_attribution.dart';
+import 'package:avaremp/ofm/ofm_constants.dart';
+import 'package:avaremp/ofm/ofm_map_layer.dart';
+import 'package:avaremp/ofm/ofm_airspace_layer.dart';
+import 'package:avaremp/openaip/openaip_airspace_layer.dart';
+import 'package:avaremp/openaip/openaip_attribution.dart';
+import 'package:avaremp/openaip/openaip_changes.dart';
+import 'package:avaremp/openaip/openaip_constants.dart';
+import 'package:avaremp/openaip/openaip_database.dart';
+import 'package:avaremp/utils/map_controller_guard.dart';
+import 'package:avaremp/ofm/ofm_data_provider.dart';
+import 'package:avaremp/data/aeronautical_database.dart';
 import 'package:avaremp/storage.dart';
 import 'package:avaremp/weather/airep.dart';
 import 'package:avaremp/weather/airsigmet.dart';
@@ -62,6 +74,7 @@ class MapScreenState extends State<MapScreen> {
   bool _rubberBanding = false;
   final Ruler _ruler = Ruler();
   final MBTilesLayerManager _mbtilesManager = MBTilesLayerManager();
+  final OfmMapLayer _ofmMapLayer = OfmMapLayer();
   String _type = Storage().settings.getChartType();
   int _maxZoom = ChartCategory.chartTypeToZoom(Storage().settings.getChartType());
   final MapController _controller = MapController();
@@ -79,6 +92,8 @@ class MapScreenState extends State<MapScreen> {
   final ValueNotifier<(List<LatLng>, List<String>)> _tapeNotifier = ValueNotifier<(List<LatLng>, List<String>)>(([],[]));
   ElevationTileProvider elevationTileProvider = ElevationTileProvider();
   int _cacheBustElevation = 0;
+  bool _ofmLoadInProgress = false;
+  bool _mapReady = false;
   // memoization for the distance circles and the to-waypoint great-circle path,
   // which otherwise recompute trig every second even when nothing has changed
   String? _circlesKey;
@@ -163,8 +178,15 @@ class MapScreenState extends State<MapScreen> {
     Storage().airSigmet.change.addListener(_airSigmetListen);
     Storage().tfr.change.addListener(_tfrListen);
     Storage().geoParser.change.addListener(_geoJsonListen);
+    OfmMapLayer.changes.addListener(_ofmChanged);
+    OpenAipChanges.notifier.addListener(_openAipChanged);
     // load vector tiles
     _mbtilesManager.loadMBTiles(PathUtils.getFilePath(Storage().dataDir, PathUtils.getFilePath("maps", "nasr.mbtiles")));
+    _ofmMapLayer.loadInstalled(Storage().dataDir).then((loaded) {
+      if (loaded && mounted) {
+        setState(() {});
+      }
+    });
 
     super.initState();
   }
@@ -179,9 +201,22 @@ class MapScreenState extends State<MapScreen> {
     Storage().airSigmet.change.removeListener(_airSigmetListen);
     Storage().tfr.change.removeListener(_tfrListen);
     Storage().geoParser.change.removeListener(_geoJsonListen);
+    OfmMapLayer.changes.removeListener(_ofmChanged);
+    OpenAipChanges.notifier.removeListener(_openAipChanged);
     _previousPosition = null;
     _mbtilesManager.close();
+    _ofmMapLayer.close();
     super.dispose();
+  }
+
+  void _ofmChanged() {
+    _ofmMapLayer.loadInstalled(Storage().dataDir, force: true).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _openAipChanged() {
+    if (mounted) setState(() {});
   }
 
   // for measuring tape
@@ -506,12 +541,19 @@ class MapScreenState extends State<MapScreen> {
       // no rotation in track up
       initialRotation: Storage().settings.getRotation(),
       backgroundColor: Storage().settings.isLightMode() ? Constants.mapBackgroundColorLight: Constants.mapBackgroundColorDark,
+      onMapReady: () {
+        if (mounted) {
+          setState(() => _mapReady = true);
+        } else {
+          _mapReady = true;
+        }
+      },
       onLongPress: (tap, point) async {
         if(_ruler.isMeasuring()) {
           _ruler.setPoint(point); // on long press when measuring, set ruler point
         }
         else { // otherwise show destination screen
-          List<Destination> items = await MainDatabaseHelper.db.findNear(point);
+          List<Destination> items = await AeronauticalDatabase.instance.findNear(point);
           setState(() {
             showDestination(this.context, items);
           });
@@ -560,6 +602,64 @@ class MapScreenState extends State<MapScreen> {
       final mbtilesWidget = _mbtilesManager.buildVectorTileLayer(opacity: opacity);
       if (mbtilesWidget != null) {
         layers.add(mbtilesWidget);
+      }
+    }
+
+    lIndex = _layers.indexOf(OfmConstants.layerName);
+    if (lIndex >= 0) {
+      opacity = _layersOpacity[lIndex];
+      if (opacity > 0) {
+        if (!_ofmMapLayer.isLoaded && !_ofmLoadInProgress) {
+          _ofmLoadInProgress = true;
+          _ofmMapLayer.loadInstalled(Storage().dataDir).then((loaded) {
+            _ofmLoadInProgress = false;
+            if (loaded && mounted) {
+              setState(() {});
+            }
+          });
+        }
+        layers.addAll(_ofmMapLayer.buildLayers(opacity: opacity));
+      }
+    }
+
+    lIndex = _layers.indexOf(OfmConstants.dataLayerName);
+    if (lIndex >= 0) {
+      opacity = _layersOpacity[lIndex];
+      final camera = MapControllerGuard.cameraIfReady(_controller, _mapReady);
+      if (opacity > 0 && camera != null) {
+        final bounds = camera.visibleBounds;
+        layers.add(FutureBuilder<List<OfmAirspace>>(
+          future: OfmDataProvider(dataDir: Storage().dataDir).findAirspacesInBounds(
+            minLat: bounds.south,
+            maxLat: bounds.north,
+            minLon: bounds.west,
+            maxLon: bounds.east,
+          ),
+          builder: (context, snapshot) => PolygonLayer(
+            polygons: OfmAirspaceLayer.polygons(snapshot.data ?? const [], opacity: opacity),
+          ),
+        ));
+      }
+    }
+
+    lIndex = _layers.indexOf(OpenAipConstants.dataLayerName);
+    if (lIndex >= 0) {
+      opacity = _layersOpacity[lIndex];
+      final camera = MapControllerGuard.cameraIfReady(_controller, _mapReady);
+      if (opacity > 0 && camera != null) {
+        final bounds = camera.visibleBounds;
+        layers.add(FutureBuilder<List<OpenAipAirspace>>(
+          future: OpenAipDatabase.open(Storage().dataDir).then((db) =>
+              OpenAipDatabase(database: db).findAirspacesInBounds(
+                minLat: bounds.south,
+                maxLat: bounds.north,
+                minLon: bounds.west,
+                maxLon: bounds.east,
+              )),
+          builder: (context, snapshot) => PolygonLayer(
+            polygons: OpenAipAirspaceLayer.polygons(snapshot.data ?? const [], opacity: opacity),
+          ),
+        ));
       }
     }
 
@@ -1396,6 +1496,15 @@ class MapScreenState extends State<MapScreen> {
         body: Stack(
             children: [
               RepaintBoundary(child: map), // map
+              if(_layers.contains(OfmConstants.layerName) &&
+                  _layersOpacity[_layers.indexOf(OfmConstants.layerName)] > 0 &&
+                  _ofmMapLayer.isLoaded)
+                OfmAttribution(opacity: _layersOpacity[_layers.indexOf(OfmConstants.layerName)]),
+              if (_layers.contains(OpenAipConstants.dataLayerName) &&
+                  _layersOpacity[_layers.indexOf(OpenAipConstants.dataLayerName)] > 0)
+                OpenAipAttribution(
+                  opacity: _layersOpacity[_layers.indexOf(OpenAipConstants.dataLayerName)],
+                ),
               if(_layersOpacity[_layers.indexOf('PFD')] > 0)
                 ValueListenableBuilder<int>(
                   valueListenable: Storage().pfdChange,
