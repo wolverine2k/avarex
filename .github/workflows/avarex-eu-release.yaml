@@ -82,7 +82,7 @@ jobs:
           ANDROID_REVENUECAT_API_KEY: ${{ secrets.ANDROID_REVENUECAT_API_KEY }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 -c "
           import os
           from pathlib import Path
 
@@ -97,7 +97,7 @@ jobs:
                   updated = updated.replace(needle, replacement)
               if updated != text:
                   path.write_text(updated, encoding='utf-8')
-          PY
+          "
 
       - name: Install project dependencies
         run: flutter pub get
