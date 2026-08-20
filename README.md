@@ -190,6 +190,24 @@ Windows: https://apps.microsoft.com/detail/9mx4hkl30mww?hl=en-us&gl=US
 
 Github Actions builds all store builds.
 
+### AvareX-EU tagged releases
+
+Pushing any Git tag runs `.github/workflows/avarex-eu-release.yaml`. The workflow
+runs the Flutter tests and analyzer, builds and signs the Android release, and
+creates a GitHub release containing:
+
+- `AvareX-EU-<tag>.apk`
+- `AvareX-EU-<tag>-source.tar.gz`
+- `AvareX-EU-<tag>-source.zip`
+- `CHANGELOG-<tag>.md`
+
+The changelist contains commits since the previous tag, is used as the GitHub
+release description, and is also included inside both source archives as
+`CHANGELOG-RELEASE.md`. The release workflow requires the same Android signing,
+Firebase, FAA-service, and RevenueCat repository secrets used by the existing
+Android workflow. An openAIP API key is deliberately not a build secret; each
+user supplies and securely stores a personal key in the application.
+
 Microsoft version scheme: pubspec.yaml (versions go like 1.0.9.0, last digit must be 0)
 
 Apple version scheme: pubspec.yaml 0.0.9+9
