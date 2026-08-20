@@ -193,7 +193,7 @@ Github Actions builds all store builds.
 ### AvareX-EU tagged releases
 
 Pushing any Git tag runs `.github/workflows/avarex-eu-release.yaml`. The workflow
-runs the Flutter tests and analyzer, builds and signs the Android release, and
+runs the Flutter tests and analyzer, builds the Android release APK, and
 creates a GitHub release containing:
 
 - `AvareX-EU-<tag>.apk`
@@ -203,9 +203,10 @@ creates a GitHub release containing:
 
 The changelist contains commits since the previous tag, is used as the GitHub
 release description, and is also included inside both source archives as
-`CHANGELOG-RELEASE.md`. The release workflow requires the Android signing,
-FAA-service, and RevenueCat repository secrets used by the existing Android
-workflow. It deliberately
+`CHANGELOG-RELEASE.md`. The EU APK uses the release build configuration without
+requiring the Play Store signing secrets; it is intended for direct installation
+from the GitHub release. The workflow still uses the existing FAA-service and
+RevenueCat repository secrets. It deliberately
 builds with non-production Firebase placeholders, so no Firebase login or
 Firebase service-account secret is required and Firebase-backed cloud features
 are unavailable in the EU artifact. An openAIP API key is likewise not a build
