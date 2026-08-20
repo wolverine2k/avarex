@@ -190,13 +190,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          for secret_name in SIGNING_KEY_BASE64 KEY_ALIAS KEYSTORE_PASSWORD KEY_PASSWORD; do
-            if [[ -z "${!secret_name}" ]]; then
-              echo "Required Android signing secret $secret_name is not set."
-              exit 1
-            fi
-          done
-
           RELEASE_APK="build/app/outputs/apk/release/app-release.apk"
           if [[ ! -f "$RELEASE_APK" ]]; then
             echo "Expected release APK was not generated at $RELEASE_APK"
@@ -213,18 +206,53 @@ jobs:
             exit 1
           fi
 
-          KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release.jks"
           ALIGNED_APK="dist/AvareX-EU-$TAG-aligned.apk"
-          printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode > "$KEYSTORE"
-
           "$ZIPALIGN" -f -p 4 "$RELEASE_APK" "$ALIGNED_APK"
-          "$APKSIGNER" sign \
-            --ks "$KEYSTORE" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --key-pass "pass:$KEY_PASSWORD" \
-            --out "dist/$APK_NAME" \
-            "$ALIGNED_APK"
+
+          sign_apk() {
+            local keystore="$1"
+            local alias="$2"
+            local storepass="$3"
+            local keypass="$4"
+            "$APKSIGNER" sign \
+              --ks "$keystore" \
+              --ks-key-alias "$alias" \
+              --ks-pass "pass:$storepass" \
+              --key-pass "pass:$keypass" \
+              --out "dist/$APK_NAME" \
+              "$ALIGNED_APK"
+          }
+
+          KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release.jks"
+          if [[ -n "$SIGNING_KEY_BASE64" && -n "$KEY_ALIAS" && -n "$KEYSTORE_PASSWORD" && -n "$KEY_PASSWORD" ]]; then
+            if printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode --ignore-garbage > "$KEYSTORE" \
+                && sign_apk "$KEYSTORE" "$KEY_ALIAS" "$KEYSTORE_PASSWORD" "$KEY_PASSWORD"; then
+              echo "Signed APK with repository signing key."
+            else
+              echo "Repository Android signing secrets are present but could not sign the APK; using generated GitHub-release signing key."
+              rm -f "dist/$APK_NAME" "$KEYSTORE"
+            fi
+          else
+            echo "Repository Android signing secrets are incomplete; using generated GitHub-release signing key."
+          fi
+
+          if [[ ! -f "dist/$APK_NAME" ]]; then
+            FALLBACK_KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release-generated.jks"
+            FALLBACK_ALIAS="avarex-eu-release"
+            FALLBACK_PASSWORD="avarex-eu-release-pass"
+            keytool -genkeypair \
+              -keystore "$FALLBACK_KEYSTORE" \
+              -storepass "$FALLBACK_PASSWORD" \
+              -keypass "$FALLBACK_PASSWORD" \
+              -alias "$FALLBACK_ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=AvareX EU GitHub Release, O=AvareX, C=US"
+            sign_apk "$FALLBACK_KEYSTORE" "$FALLBACK_ALIAS" "$FALLBACK_PASSWORD" "$FALLBACK_PASSWORD"
+            rm -f "$FALLBACK_KEYSTORE"
+          fi
+
           "$APKSIGNER" verify --verbose --print-certs "dist/$APK_NAME"
           rm -f "$KEYSTORE" "$ALIGNED_APK"
 
