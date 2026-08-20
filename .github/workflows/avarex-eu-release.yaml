@@ -75,23 +75,29 @@ jobs:
           flutter-version: '3.35.1'
           cache: true
 
-      - name: Inject FAA service credential
-        uses: richardrigutins/replace-in-files@v2
-        with:
-          files: '**/*.dart'
-          search-text: '@@__faa_nms_api_client_id_secret__@@'
-          replacement-text: ${{ secrets.FAA_NMS_API_CLIENT_ID_SECRET }}
-          encoding: utf8
-          max-parallelism: 10
+      - name: Inject optional app service credentials
+        shell: bash
+        env:
+          FAA_NMS_API_CLIENT_ID_SECRET: ${{ secrets.FAA_NMS_API_CLIENT_ID_SECRET }}
+          ANDROID_REVENUECAT_API_KEY: ${{ secrets.ANDROID_REVENUECAT_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-      - name: Inject RevenueCat Android key
-        uses: richardrigutins/replace-in-files@v2
-        with:
-          files: '**/*.dart'
-          search-text: '@@___revenuecat_android_api_key__@@'
-          replacement-text: ${{ secrets.ANDROID_REVENUECAT_API_KEY }}
-          encoding: utf8
-          max-parallelism: 10
+          replacements = {
+              '@@__faa_nms_api_client_id_secret__@@': os.environ.get('FAA_NMS_API_CLIENT_ID_SECRET', ''),
+              '@@___revenuecat_android_api_key__@@': os.environ.get('ANDROID_REVENUECAT_API_KEY', ''),
+          }
+          for path in Path('.').rglob('*.dart'):
+              text = path.read_text(encoding='utf-8')
+              updated = text
+              for needle, replacement in replacements.items():
+                  updated = updated.replace(needle, replacement)
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+          PY
 
       - name: Install project dependencies
         run: flutter pub get
