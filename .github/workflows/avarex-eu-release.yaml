@@ -33,6 +33,9 @@ jobs:
           fi
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "APK_NAME=AvareX-EU-$TAG.apk" >> "$GITHUB_ENV"
+          echo "APK_UNSIGNED_NAME=AvareX-EU-$TAG-unsigned.apk" >> "$GITHUB_ENV"
+          echo "AAB_NAME=AvareX-EU-$TAG.aab" >> "$GITHUB_ENV"
+          echo "AAB_UNSIGNED_NAME=AvareX-EU-$TAG-unsigned.aab" >> "$GITHUB_ENV"
           echo "SOURCE_BASENAME=AvareX-EU-$TAG-source" >> "$GITHUB_ENV"
           echo "CHANGELOG_NAME=CHANGELOG-$TAG.md" >> "$GITHUB_ENV"
 
@@ -183,10 +186,28 @@ jobs:
           flutter test
           flutter analyze --no-fatal-infos
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Ensure Android cmdline-tools (apkanalyzer) for AAB build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `flutter build appbundle` runs apkanalyzer to strip debug symbols;
+          # without cmdline-tools it fails with a misleading
+          # "failed to strip debug symbols". Make sure it's installed.
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if ! find "$SDK_ROOT/cmdline-tools" -type f -name apkanalyzer 2>/dev/null | grep -q .; then
+            echo "apkanalyzer not found; installing cmdline-tools;latest"
+            yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "cmdline-tools;latest" 2>/dev/null \
+              || (command -v sdkmanager >/dev/null && yes | sdkmanager "cmdline-tools;latest") \
+              || echo "Could not auto-install cmdline-tools; relying on preinstalled tooling."
+          fi
+          find "$SDK_ROOT" -type f -name apkanalyzer -print 2>/dev/null | head -1 || true
 
-      - name: Sign and name release APK
+      - name: Build release APK and AAB
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
+      - name: Sign and name release artifacts (APK + AAB, signed + unsigned)
         shell: bash
         env:
           SIGNING_KEY_BASE64: ${{ secrets.KEY_STORE }}
@@ -195,28 +216,39 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_STORE_PASS }}
         run: |
           set -euo pipefail
-          # Without a Gradle signingConfig the release output is named
-          # app-release-unsigned.apk; with one it's app-release.apk. Accept
-          # either (this step signs it regardless via apksigner).
+
+          # --- Locate the built artifacts (names vary with signingConfig) ---
           RELEASE_APK=""
           for candidate in \
             "build/app/outputs/apk/release/app-release.apk" \
             "build/app/outputs/apk/release/app-release-unsigned.apk" \
             "build/app/outputs/flutter-apk/app-release.apk"; do
-            if [[ -f "$candidate" ]]; then
-              RELEASE_APK="$candidate"
-              break
-            fi
+            if [[ -f "$candidate" ]]; then RELEASE_APK="$candidate"; break; fi
           done
           if [[ -z "$RELEASE_APK" ]]; then
             echo "No release APK was generated under build/app/outputs"
             find build/app/outputs -type f -name '*.apk' -print || true
             exit 1
           fi
-          echo "Using release APK: $RELEASE_APK"
+          RELEASE_AAB=""
+          for candidate in \
+            "build/app/outputs/bundle/release/app-release.aab" \
+            "build/app/outputs/bundle/release/app.aab"; do
+            if [[ -f "$candidate" ]]; then RELEASE_AAB="$candidate"; break; fi
+          done
+          if [[ -z "$RELEASE_AAB" ]]; then
+            echo "No release AAB was generated under build/app/outputs/bundle"
+            find build/app/outputs/bundle -type f -name '*.aab' -print || true
+            exit 1
+          fi
+          echo "APK: $RELEASE_APK"
+          echo "AAB: $RELEASE_AAB"
 
-          # Locate zipalign/apksigner from whatever build-tools version the
-          # runner has (the pinned 34.0.0 is not guaranteed to be installed).
+          # --- Publish the unsigned artifacts verbatim ---
+          cp "$RELEASE_APK" "dist/$APK_UNSIGNED_NAME"
+          cp "$RELEASE_AAB" "dist/$AAB_UNSIGNED_NAME"
+
+          # --- Locate signing tools ---
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           ZIPALIGN="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name zipalign 2>/dev/null | sort -V | tail -1 || true)"
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner 2>/dev/null | sort -V | tail -1 || true)"
@@ -225,58 +257,44 @@ jobs:
             find "$SDK_ROOT/build-tools" -maxdepth 2 -type f \( -name zipalign -o -name apksigner \) -print || true
             exit 1
           fi
-          echo "Using zipalign: $ZIPALIGN"
-          echo "Using apksigner: $APKSIGNER"
+          echo "zipalign: $ZIPALIGN"
+          echo "apksigner: $APKSIGNER"
 
-          ALIGNED_APK="dist/AvareX-EU-$TAG-aligned.apk"
-          "$ZIPALIGN" -f -p 4 "$RELEASE_APK" "$ALIGNED_APK"
-
-          sign_apk() {
-            local keystore="$1"
-            local alias="$2"
-            local storepass="$3"
-            local keypass="$4"
-            "$APKSIGNER" sign \
-              --ks "$keystore" \
-              --ks-key-alias "$alias" \
-              --ks-pass "pass:$storepass" \
-              --key-pass "pass:$keypass" \
-              --out "dist/$APK_NAME" \
-              "$ALIGNED_APK"
-          }
-
+          # --- Prepare the keystore (repo secret, else a generated fallback) ---
           KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release.jks"
-          if [[ -n "$SIGNING_KEY_BASE64" && -n "$KEY_ALIAS" && -n "$KEYSTORE_PASSWORD" && -n "$KEY_PASSWORD" ]]; then
-            if printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode --ignore-garbage > "$KEYSTORE" \
-                && sign_apk "$KEYSTORE" "$KEY_ALIAS" "$KEYSTORE_PASSWORD" "$KEY_PASSWORD"; then
-              echo "Signed APK with repository signing key."
-            else
-              echo "Repository Android signing secrets are present but could not sign the APK; using generated GitHub-release signing key."
-              rm -f "dist/$APK_NAME" "$KEYSTORE"
-            fi
+          KS_ALIAS=""; KS_STOREPASS=""; KS_KEYPASS=""
+          if [[ -n "$SIGNING_KEY_BASE64" && -n "$KEY_ALIAS" && -n "$KEYSTORE_PASSWORD" && -n "$KEY_PASSWORD" ]] \
+              && printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode --ignore-garbage > "$KEYSTORE" 2>/dev/null \
+              && keytool -list -keystore "$KEYSTORE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "Using repository signing key."
+            KS_ALIAS="$KEY_ALIAS"; KS_STOREPASS="$KEYSTORE_PASSWORD"; KS_KEYPASS="$KEY_PASSWORD"
           else
-            echo "Repository Android signing secrets are incomplete; using generated GitHub-release signing key."
-          fi
-
-          if [[ ! -f "dist/$APK_NAME" ]]; then
-            FALLBACK_KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release-generated.jks"
-            FALLBACK_ALIAS="avarex-eu-release"
-            FALLBACK_PASSWORD="avarex-eu-release-pass"
-            keytool -genkeypair \
-              -keystore "$FALLBACK_KEYSTORE" \
-              -storepass "$FALLBACK_PASSWORD" \
-              -keypass "$FALLBACK_PASSWORD" \
-              -alias "$FALLBACK_ALIAS" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
+            echo "Repository signing secrets missing/invalid; generating a fallback signing key."
+            KEYSTORE="${RUNNER_TEMP:-/tmp}/avarex-eu-release-generated.jks"
+            KS_ALIAS="avarex-eu-release"; KS_STOREPASS="avarex-eu-release-pass"; KS_KEYPASS="avarex-eu-release-pass"
+            keytool -genkeypair -keystore "$KEYSTORE" -storepass "$KS_STOREPASS" -keypass "$KS_KEYPASS" \
+              -alias "$KS_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
               -dname "CN=AvareX EU GitHub Release, O=AvareX, C=US"
-            sign_apk "$FALLBACK_KEYSTORE" "$FALLBACK_ALIAS" "$FALLBACK_PASSWORD" "$FALLBACK_PASSWORD"
-            rm -f "$FALLBACK_KEYSTORE"
           fi
 
+          # --- Sign the APK (zipalign + apksigner) ---
+          ALIGNED_APK="${RUNNER_TEMP:-/tmp}/aligned.apk"
+          "$ZIPALIGN" -f -p 4 "$RELEASE_APK" "$ALIGNED_APK"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" --ks-key-alias "$KS_ALIAS" \
+            --ks-pass "pass:$KS_STOREPASS" --key-pass "pass:$KS_KEYPASS" \
+            --out "dist/$APK_NAME" "$ALIGNED_APK"
           "$APKSIGNER" verify --verbose --print-certs "dist/$APK_NAME"
+
+          # --- Sign the AAB (jarsigner; apksigner does not handle AABs) ---
+          cp "$RELEASE_AAB" "dist/$AAB_NAME"
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore "$KEYSTORE" -storepass "$KS_STOREPASS" -keypass "$KS_KEYPASS" \
+            "dist/$AAB_NAME" "$KS_ALIAS"
+          jarsigner -verify "dist/$AAB_NAME"
+
           rm -f "$KEYSTORE" "$ALIGNED_APK"
+          echo "Artifacts:"; ls -la dist/*.apk dist/*.aab
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -285,6 +303,9 @@ jobs:
           body_path: dist/${{ env.CHANGELOG_NAME }}
           files: |
             dist/${{ env.APK_NAME }}
+            dist/${{ env.APK_UNSIGNED_NAME }}
+            dist/${{ env.AAB_NAME }}
+            dist/${{ env.AAB_UNSIGNED_NAME }}
             dist/${{ env.SOURCE_BASENAME }}.tar.gz
             dist/${{ env.SOURCE_BASENAME }}.zip
             dist/${{ env.CHANGELOG_NAME }}
