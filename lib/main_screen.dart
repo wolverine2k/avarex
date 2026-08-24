@@ -331,6 +331,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                       ),
                       _buildMenuItem(
                         context,
+                        icon: Icons.warning_amber,
+                        title: "NOTAMs (FlyBrief)",
+                        subtitle: "European NOTAMs for offline use",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/flybrief');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
                         icon: MdiIcons.fileDocument,
                         title: "Documents",
                         subtitle: "Weather, manuals, notes, tracks",

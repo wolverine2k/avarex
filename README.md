@@ -144,6 +144,40 @@ integrated: its JSON API requires a per-user paid RapidAPI key and largely
 duplicates METAR/Open-Meteo coverage. It remains a possible future option for
 historical/station surface observations.
 
+### NOTAMs (FlyBrief, offline)
+
+The built-in NOTAM source is a United States FAA API that returns nothing in
+Europe. Where it has no coverage, the airport NOTAM tab falls back to
+[FlyBrief](https://flybrief.app/) per-country, georeferenced NOTAM GeoJSON
+(polygons with altitude bands, schedules and active-now flags).
+
+- Selection is automatic: the built-in source is tried first; outside its
+  coverage the FlyBrief country under the destination is used, filtered to
+  NOTAMs near the point (active ones first).
+- Offline-first: **Menu > Data > NOTAMs (FlyBrief)** downloads and stores the
+  current country's NOTAMs (and obstacles) under `{dataDir}/flybrief/` so they
+  are available without a connection. The tab loads the stored file when
+  present and only fetches live when it is missing.
+- ~28 European countries are covered. NOTAMs carry
+  `NOTAMs © OpenAIP contributors & national AIS via FlyBrief (CC BY-NC-SA 4.0)`
+  attribution and are advisory only — always confirm against the official
+  national briefing.
+
+### Not available in open form (documented, not faked)
+
+Some parity items have no authoritative, machine-readable open source and are
+deliberately **not** implemented rather than approximated with fragile scrapers:
+
+- **SID/STAR and instrument procedures**: there is no open, machine-readable
+  European equivalent of the FAA CIFP; this data is commercial/licensed.
+- **Georeferenced approach plates / airport diagrams**: no uniform cross-country
+  open catalog. AvareX links out to the official national AIP via aip.aero
+  instead (see above); it does not store or overlay plates.
+- **Terrain/elevation/GPWS outside the US**: the engine is geography-agnostic
+  but depends on elevation tiles that are only distributed for the US today. A
+  future option is transcoding open global DEM tiles (e.g. AWS Terrain Tiles)
+  into the app's elevation-tile format.
+
 ### United States and European feature parity
 
 "Partial" means the feature works with available community/open data but does
@@ -171,7 +205,7 @@ implementation.
 | Decoded METAR with VFR/IFR threat coloring | Plain-English decode with selectable profile | Same decode, geography-independent | Full |
 | Radar mosaic | US NEXRAD | No European radar provider integrated | None |
 | Winds aloft and graphical weather | US AWC/WPC products | Winds aloft from Open-Meteo pressure-level forecasts outside US coverage; no graphical products | Partial |
-| NOTAMs and temporary restrictions | FAA-specific services | No authoritative Europe-wide open API integrated | None |
+| NOTAMs and temporary restrictions | FAA-specific services | Per-country georeferenced NOTAMs via FlyBrief, stored for offline use | Partial |
 | Terrain, elevation, and GPWS | US regional terrain packages | No European terrain package integrated | None |
 | Obstacles | FAA obstacle data | Supplementary openAIP obstacles with incomplete-authority warning | Partial |
 | ADS-B/GDL90 traffic and external GPS | Geography-independent | Geography-independent | Full |
@@ -197,9 +231,10 @@ procedure information from the applicable national and European services.
 - Neither OFM nor openAIP data is represented as certified.
 
 Known EU gaps and future options (not yet integrated): winds aloft outside US
-coverage is now provided by Open-Meteo (see above). Meteostat surface
-observations, live NOTAM aggregation, weather radar, terrain/GPWS, and IFR
-procedures/plates as georeferenced overlays remain open.
+coverage is now provided by Open-Meteo and European NOTAMs by FlyBrief (both
+above). Meteostat surface observations, weather radar, terrain/GPWS outside the
+US, and IFR procedures/plates as georeferenced overlays remain open (see "Not
+available in open form").
 
 ## Getting Started
 

@@ -20,6 +20,8 @@ import 'package:avaremp/weather/winds_aloft.dart';
 import 'package:avaremp/weather/winds_cache.dart';
 import 'package:avaremp/weather/open_meteo_winds.dart';
 import 'package:avaremp/weather/open_meteo_credentials.dart';
+import 'package:avaremp/weather/flybrief_notams.dart';
+import 'package:avaremp/weather/flybrief_store.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -96,6 +98,34 @@ class LongPressScreenState extends State<LongPressScreen> {
         );
       }
     }
+  }
+
+  // Gathers NOTAM lines for a destination. Uses the built-in (US FAA) source
+  // first; when it yields nothing (e.g. in Europe) it falls back to FlyBrief's
+  // per-country georeferenced NOTAMs (offline-first). Returns the display
+  // title, the NOTAM lines, and an optional data-source attribution.
+  Future<(String, List<String>, String?)> _gatherNotams(
+      Destination dest) async {
+    // 1) Built-in source (FAA).
+    final Notam? n = await Storage().notam.getSync(dest.locationID) as Notam?;
+    if (n != null) {
+      var lines = n.toString().split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (lines.isNotEmpty) {
+        final title = lines.removeAt(0);
+        return (title, lines, null);
+      }
+    }
+    // 2) FlyBrief fallback (Europe / covered countries), offline-first.
+    final fb = await FlybriefStore.nearbyForPoint(
+        dest.coordinate.latitude, dest.coordinate.longitude);
+    if (fb.isNotEmpty) {
+      final lines = fb.map((e) => e.toLine()).toList();
+      return ('NOTAMs near ${dest.locationID}', lines, FlybriefNotams.attribution);
+    }
+    return ('', <String>[], null);
   }
 
   @override
@@ -314,15 +344,17 @@ class LongPressScreenState extends State<LongPressScreen> {
           ],
         );
       }
-      pages[labels.indexOf("NOTAM")] = FutureBuilder(
-        future: Storage().notam.getSync(showDestination.locationID),
+      pages[labels.indexOf("NOTAM")] = FutureBuilder<(String, List<String>, String?)>(
+        future: _gatherNotams(showDestination),
         builder: (context, snapshot) {
-            if (snapshot.data != null) {
-              Notam n = snapshot.data as Notam;
-
-              List<String> lines = n.toString().split("\n");
-              lines = lines.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-              String title = lines.removeAt(0);
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final data = snapshot.data;
+            if (data != null && data.$2.isNotEmpty) {
+              final String title = data.$1;
+              final List<String> lines = data.$2;
+              final String? attribution = data.$3;
               return ListView(
                 padding: const EdgeInsets.all(8),
                 children: [
@@ -375,6 +407,12 @@ class LongPressScreenState extends State<LongPressScreen> {
                         leading: Icon(Icons.warning_amber, color: Colors.orange.shade700),
                         title: Text(v, style: const TextStyle(fontSize: 13)),
                       ),
+                    ),
+                  if (attribution != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(attribution,
+                          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                     ),
                 ],
               );
