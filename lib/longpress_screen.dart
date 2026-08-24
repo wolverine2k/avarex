@@ -27,6 +27,7 @@ import 'destination/airport.dart';
 import 'constants.dart';
 import 'package:avaremp/destination/destination.dart';
 import 'weather/metar.dart';
+import 'weather/decoded_metar_view.dart';
 import 'ofm/ofm_constants.dart';
 
 class LongPressScreen extends StatefulWidget {
@@ -195,6 +196,7 @@ class LongPressScreenState extends State<LongPressScreen> {
                 title: const Text('METAR'),
                 subtitle: Text(metar.text),
               )),
+              if (metar != null) DecodedMetarView(metar: metar),
               if (taf != null) Card(child: ListTile(
                 leading: taf.getIcon(),
                 title: const Text('TAF'),
@@ -244,6 +246,7 @@ class LongPressScreenState extends State<LongPressScreen> {
                   ),
                 ),
               ),
+            if (metar != null) DecodedMetarView(metar: metar),
             if (taf != null)
               Card(
                 child: ListTile(

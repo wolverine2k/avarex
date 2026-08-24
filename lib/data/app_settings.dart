@@ -48,6 +48,16 @@ class AppSettings {
     provider.setBool("key-light-mode", lightMode);
   }
 
+  // Weather threat-coloring profile for the decoded METAR view.
+  // "IFR" (default) or "VFR"; governs the thresholds in MetarDecoder.
+  String getWeatherProfile() {
+    return provider.getValue("key-weather-profile", defaultValue: "IFR") as String;
+  }
+
+  void setWeatherProfile(String profile) {
+    provider.setString("key-weather-profile", profile);
+  }
+
   void setZoom(double zoom) {
     provider.setDouble("key-chart-zoom", zoom);
   }
