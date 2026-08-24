@@ -81,6 +81,46 @@ as the sole source for primary navigation or flight planning. See the
 [API documentation](https://docs.openaip.net/) before redistributing data or
 shipping it in a commercial product.
 
+### Official AIP charts (aip.aero)
+
+For any covered European (and several nearby) airport, the destination details
+provide a **Official AIP & approach charts** action that opens the airport's
+page on [aip.aero](https://aip.aero/) in the platform browser. aip.aero is a
+free index that links straight to the country's official national AIP
+publication (VFR/IFR charts, aerodrome data).
+
+- This is a link hand-off only. AvareX does not fetch, cache, or redistribute
+  any chart PDF or AIP content; it merely builds and opens the correct URL.
+- The ICAO identifier is mapped to the aip.aero country entry; where the
+  airport deep link is not available the country landing page is used instead.
+- The action is clearly marked as an external site and reminds the pilot to
+  verify AIRAC currency before every flight.
+
+This provides a legal, low-friction route to official plates and airport
+diagrams without embedding third-party charts. It is not a georeferenced,
+moving-map plate overlay.
+
+### Decoded METAR with selectable VFR/IFR thresholds
+
+Airport weather panels show, below the raw METAR, a **Decoded METAR** card that
+translates the report into plain English (wind, visibility, ceiling, present
+weather, temperature/dewpoint spread, and pressure) and color-codes each element
+by threat level. A per-view **VFR/IFR** selector switches the threshold profile
+so the same report is assessed against thresholds appropriate to the operation.
+
+- Uses only the raw METAR AvareX already holds; no third-party service.
+- The selected profile is remembered across sessions.
+- Advisory only; it is not a substitute for an official weather briefing.
+
+### Default map layers
+
+On a fresh installation the Europe map layers — `OFM VFR Chart`,
+`OFM Interactive Data`, and `openAIP Interactive Data` — are enabled by default
+so installed European data is visible without first opening the layer controls.
+These layers render nothing until the corresponding regional data is installed,
+so United-States-only users are unaffected. Existing users keep their saved
+layer choices; the default applies only to new installs.
+
 ### United States and European feature parity
 
 "Partial" means the feature works with available community/open data but does
@@ -101,10 +141,11 @@ implementation.
 | VFR reporting points and fixes | FAA fixes | OFMX designated points plus openAIP reporting points | High for VFR use |
 | Airways and automatic IFR routing | FAA airway graph | No dependable Europe-wide open airway graph integrated | Low |
 | SID, STAR, and instrument procedures | FAA CIFP | Not available from the integrated open sources | None |
-| Approach plates and airport diagrams | FAA d-TPP products | No Europe-wide authoritative open equivalent integrated | None |
+| Approach plates and airport diagrams | FAA d-TPP products | Link-out to official national AIP via aip.aero (not georeferenced, not in-app overlay) | Partial |
 | Airspace display | FAA airspace/SUA | OFM and optional openAIP polygons | High for static display |
 | Airspace schedules and live activation | FAA products where available | Static metadata and `BY NOTAM` flags; no live activation feed | Partial |
 | METAR and TAF | Aviation Weather Center | International AWC reports where stations are covered | High |
+| Decoded METAR with VFR/IFR threat coloring | Plain-English decode with selectable profile | Same decode, geography-independent | Full |
 | Radar mosaic | US NEXRAD | No European radar provider integrated | None |
 | Winds aloft and graphical weather | US AWC/WPC products | No equivalent provider integrated | Low |
 | NOTAMs and temporary restrictions | FAA-specific services | No authoritative Europe-wide open API integrated | None |
@@ -131,6 +172,13 @@ procedure information from the applicable national and European services.
   database.
 - Search and nearby queries merge providers while retaining provenance.
 - Neither OFM nor openAIP data is represented as certified.
+
+Known EU gaps and future options (not yet integrated): winds aloft is currently
+US-only (Aviation Weather Center regions). A future European winds-aloft layer
+would be best sourced from a ready-to-consume JSON forecast API (for example
+Open-Meteo, which serves ECMWF IFS) rather than decoding raw ECMWF GRIB2 on the
+device. Live NOTAM aggregation, weather radar, terrain/GPWS, and IFR
+procedures/plates as georeferenced overlays remain open.
 
 ## Getting Started
 
