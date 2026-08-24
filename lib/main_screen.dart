@@ -341,6 +341,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                       ),
                       _buildMenuItem(
                         context,
+                        icon: Icons.terrain,
+                        title: "Terrain (Elevation)",
+                        subtitle: "Build offline terrain/GPWS by country",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/terrain');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
                         icon: MdiIcons.fileDocument,
                         title: "Documents",
                         subtitle: "Weather, manuals, notes, tracks",

@@ -173,12 +173,42 @@ deliberately **not** implemented rather than approximated with fragile scrapers:
 - **Georeferenced approach plates / airport diagrams**: no uniform cross-country
   open catalog. AvareX links out to the official national AIP via aip.aero
   instead (see above); it does not store or overlay plates.
-- **Terrain/elevation/GPWS outside the US**: the engine is geography-agnostic
-  but depends on elevation tiles that are only distributed for the US today. A
-  future option is transcoding open global DEM tiles (e.g. AWS Terrain Tiles)
-  into the app's elevation-tile format.
 
-### United States and European feature parity
+### Terrain, elevation and GPWS (on-device, offline)
+
+AvareX's terrain profile, elevation readout and GPWS are geography-agnostic but
+depend on elevation tiles that were only distributed for the US. They now work
+anywhere by building the tiles on the device for a chosen country.
+
+- **Menu > Data > Terrain (Elevation)** downloads open
+  [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (public
+  domain / permissively licensed DEM) and transcodes them into AvareX's exact
+  elevation-tile format (512x512 gray+alpha PNG, `elevationFt = gray * 80.4712
+  - 364.43`, slippy X / TMS Y) stored under `{dataDir}/tiles/6/{z}/{x}/{y}.png`.
+- Processing is on-device and per-country (defaults to the country under the
+  current GPS), so nothing multi-gigabyte is bundled in the app — consistent
+  with the small-download philosophy. Progress is shown and the build can be
+  cancelled; existing tiles are skipped so it resumes cheaply.
+- Rough sizes (zoom 1-10): small countries (Slovenia, Switzerland, Netherlands)
+  ~15-35 MB and a couple of minutes; mid countries (Germany, Spain, Italy)
+  ~180-290 MB; large countries (France, Sweden, Norway) are several hundred MB
+  to ~1 GB and are user-initiated with an on-screen estimate.
+- Elevation accuracy after transcoding is within one gray step (~40 ft) of the
+  source, matching the precision of AvareX's own US tiles. Advisory only; not
+  certified for terrain clearance.
+
+Bundling all-Europe terrain into the build package is intentionally **not** done:
+zoom 1-10 for all of Europe is multiple gigabytes, which exceeds app-store
+limits and the project's small-APK goal. Per-country on-device transcoding
+delivers the same offline capability without shipping the data in the binary.
+
+### Not available in open form (documented, not faked)
+
+Some parity items have no authoritative, machine-readable open source and are
+deliberately **not** implemented rather than approximated with fragile scrapers:
+
+- **SID/STAR and instrument procedures**: there is no open, machine-readable
+  European equivalent of the FAA CIFP; this data is commercial/licensed.
 
 "Partial" means the feature works with available community/open data but does
 not have the same coverage, authority, or product depth as the FAA-backed US
@@ -206,7 +236,7 @@ implementation.
 | Radar mosaic | US NEXRAD | No European radar provider integrated | None |
 | Winds aloft and graphical weather | US AWC/WPC products | Winds aloft from Open-Meteo pressure-level forecasts outside US coverage; no graphical products | Partial |
 | NOTAMs and temporary restrictions | FAA-specific services | Per-country georeferenced NOTAMs via FlyBrief, stored for offline use | Partial |
-| Terrain, elevation, and GPWS | US regional terrain packages | No European terrain package integrated | None |
+| Terrain, elevation, and GPWS | US regional terrain packages | On-device terrain tiles transcoded per country from open DEM; enables terrain profile + GPWS | Partial |
 | Obstacles | FAA obstacle data | Supplementary openAIP obstacles with incomplete-authority warning | Partial |
 | ADS-B/GDL90 traffic and external GPS | Geography-independent | Geography-independent | Full |
 | NMEA/autopilot output | Geography-independent | Geography-independent | Full |
