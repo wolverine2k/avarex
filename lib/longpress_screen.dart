@@ -20,7 +20,9 @@ import 'package:avaremp/weather/winds_aloft.dart';
 import 'package:avaremp/weather/winds_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'aip/aip_aero.dart';
 import 'destination/airport.dart';
 import 'constants.dart';
 import 'package:avaremp/destination/destination.dart';
@@ -70,6 +72,28 @@ class LongPressScreenState extends State<LongPressScreen> {
   static const List<String> labels = ["Main", "AD", "METAR", "NOTAM", "SUA", "Wind", "ST", "Business"];
 
   late Future<LongPressFuture> _loadFuture;
+
+  // Opens the airport's official-AIP index page on aip.aero in the platform
+  // browser. aip.aero links straight to the country's official AIP; we only
+  // hand off the URL (no data is fetched or cached by the app).
+  Future<void> _openAip(BuildContext context, String icao) async {
+    final uri = Uri.parse(AipAero.urlForAirport(icao));
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && messenger != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not open $uri')),
+        );
+      }
+    } catch (e) {
+      if (messenger != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Could not open $uri')),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -141,6 +165,22 @@ class LongPressScreenState extends State<LongPressScreen> {
               ? 'openAIP is community-maintained supplementary data and is not certified for primary navigation or flight planning.'
               : OfmConstants.disclaimer),
           if (!isOpenAip) const Text(OfmConstants.corrections),
+          if (showDestination is AirportDestination &&
+              AipAero.hasChartsFor(showDestination.locationID)) ...[
+            const Divider(height: 24),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.picture_as_pdf),
+                title: const Text('Official AIP & approach charts'),
+                subtitle: Text(
+                    'Open ${showDestination.locationID} on aip.aero — links to the '
+                    'country\u2019s official AIP (VFR/IFR charts, aerodrome data). '
+                    'External site; verify AIRAC currency before flight.'),
+                trailing: const Icon(Icons.open_in_new),
+                onTap: () => _openAip(context, showDestination.locationID),
+              ),
+            ),
+          ],
         ],
       );
       if (showDestination is AirportDestination) {
