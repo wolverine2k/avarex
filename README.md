@@ -121,6 +121,29 @@ These layers render nothing until the corresponding regional data is installed,
 so United-States-only users are unaffected. Existing users keep their saved
 layer choices; the default applies only to new installs.
 
+### Winds aloft (Open-Meteo)
+
+The built-in winds aloft come from NWS FB text products that only cover the
+United States and its territories. Outside that coverage the destination Wind
+tab retrieves pressure-level winds from [Open-Meteo](https://open-meteo.com/)
+and converts them into the same altitude bands (surface through 39,000 ft) so
+the display is identical.
+
+- Selection is automatic: within US FB coverage the existing product is used;
+  beyond it (Europe and the rest of the world) Open-Meteo is queried for the
+  destination coordinate, with the US data as a last-resort fallback.
+- The free Open-Meteo endpoint is used by default. A pilot who needs
+  commercial-compliant access can enter a personal Open-Meteo API key under
+  **Menu > Data > Open-Meteo Winds** (Save, Test Connection, Clear). The key is
+  stored in platform secure storage and never embedded in the app.
+- Winds are shown with `Winds © Open-Meteo.com, CC BY 4.0` attribution. They are
+  forecast, advisory, and not a substitute for an official weather briefing.
+
+Meteostat was evaluated as an additional surface-observation provider but is not
+integrated: its JSON API requires a per-user paid RapidAPI key and largely
+duplicates METAR/Open-Meteo coverage. It remains a possible future option for
+historical/station surface observations.
+
 ### United States and European feature parity
 
 "Partial" means the feature works with available community/open data but does
@@ -147,7 +170,7 @@ implementation.
 | METAR and TAF | Aviation Weather Center | International AWC reports where stations are covered | High |
 | Decoded METAR with VFR/IFR threat coloring | Plain-English decode with selectable profile | Same decode, geography-independent | Full |
 | Radar mosaic | US NEXRAD | No European radar provider integrated | None |
-| Winds aloft and graphical weather | US AWC/WPC products | No equivalent provider integrated | Low |
+| Winds aloft and graphical weather | US AWC/WPC products | Winds aloft from Open-Meteo pressure-level forecasts outside US coverage; no graphical products | Partial |
 | NOTAMs and temporary restrictions | FAA-specific services | No authoritative Europe-wide open API integrated | None |
 | Terrain, elevation, and GPWS | US regional terrain packages | No European terrain package integrated | None |
 | Obstacles | FAA obstacle data | Supplementary openAIP obstacles with incomplete-authority warning | Partial |
@@ -173,11 +196,9 @@ procedure information from the applicable national and European services.
 - Search and nearby queries merge providers while retaining provenance.
 - Neither OFM nor openAIP data is represented as certified.
 
-Known EU gaps and future options (not yet integrated): winds aloft is currently
-US-only (Aviation Weather Center regions). A future European winds-aloft layer
-would be best sourced from a ready-to-consume JSON forecast API (for example
-Open-Meteo, which serves ECMWF IFS) rather than decoding raw ECMWF GRIB2 on the
-device. Live NOTAM aggregation, weather radar, terrain/GPWS, and IFR
+Known EU gaps and future options (not yet integrated): winds aloft outside US
+coverage is now provided by Open-Meteo (see above). Meteostat surface
+observations, live NOTAM aggregation, weather radar, terrain/GPWS, and IFR
 procedures/plates as georeferenced overlays remain open.
 
 ## Getting Started

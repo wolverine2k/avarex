@@ -18,6 +18,8 @@ import 'package:avaremp/plan/waypoint.dart';
 import 'package:avaremp/weather/weather.dart';
 import 'package:avaremp/weather/winds_aloft.dart';
 import 'package:avaremp/weather/winds_cache.dart';
+import 'package:avaremp/weather/open_meteo_winds.dart';
+import 'package:avaremp/weather/open_meteo_credentials.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -100,6 +102,57 @@ class LongPressScreenState extends State<LongPressScreen> {
   void initState() {
     super.initState();
     _loadFuture = LongPressFuture(widget.destinations[0]).getAll();
+  }
+
+  // Renders the winds-aloft list for a WindsAloft, with an optional data-source
+  // attribution footer (used for the Open-Meteo fallback).
+  Widget _windsList(BuildContext context, WindsAloft wa, String? attribution) {
+    return ListView(
+      padding: const EdgeInsets.all(8),
+      children: [
+        Card(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Icon(Icons.air, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    wa.toString(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        for ((String, String) wl in wa.toList())
+          Card(
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(wl.$1, style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              title: Text(wl.$2),
+            ),
+          ),
+        if (attribution != null)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(attribution,
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+          ),
+      ],
+    );
   }
 
   @override
@@ -397,51 +450,48 @@ class LongPressScreenState extends State<LongPressScreen> {
 
     Weather? winds;
     String? station = WindsCache.locateNearestStation(showDestination.coordinate);
+    // Distance (km) to the nearest US FB winds-aloft station. Beyond the US
+    // coverage radius the FB product does not apply, so fall back to Open-Meteo.
+    double? stationKm;
     if (station != null) {
-      winds = Storage().winds.get("${station}06H");
-      if (winds != null) {
-        WindsAloft wa = winds as WindsAloft;
-        pages[labels.indexOf("Wind")] = ListView(
-          padding: const EdgeInsets.all(8),
-          children: [
-            Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Icon(Icons.air, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        winds.toString(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            for ((String, String) wl in wa.toList())
-              Card(
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(wl.$1, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(wl.$2),
-                ),
-              ),
-          ],
-        );
+      final LatLng? sc = WindsCache.stationLatLng(station);
+      if (sc != null) {
+        stationKm = OpenMeteoWinds.distanceKm(showDestination.coordinate, sc);
       }
+      winds = Storage().winds.get("${station}06H");
+    }
+    final bool usCovered =
+        winds != null && stationKm != null && stationKm <= OpenMeteoWinds.usStationMaxKm;
+
+    if (usCovered) {
+      pages[labels.indexOf("Wind")] = _windsList(context, winds as WindsAloft, null);
+    }
+    else {
+      // Non-US (or no US data): fetch pressure-level winds from Open-Meteo.
+      pages[labels.indexOf("Wind")] = FutureBuilder<WindsAloft?>(
+        future: OpenMeteoCredentials().read().then((key) => OpenMeteoWinds.fetch(
+              showDestination.coordinate,
+              apiKey: key,
+              station: showDestination.locationID,
+            )),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final WindsAloft? wa = snapshot.data;
+          if (wa == null) {
+            // Last resort: show US data if we have any, else a message.
+            if (winds != null) {
+              return _windsList(context, winds as WindsAloft, null);
+            }
+            return Center(
+              child: Text('Winds aloft unavailable for this location.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+            );
+          }
+          return _windsList(context, wa, OpenMeteoWinds.attribution);
+        },
+      );
     }
 
     pages[labels.indexOf("ST")] = Sounding.getSoundingImage(showDestination.coordinate, context);

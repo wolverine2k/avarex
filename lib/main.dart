@@ -24,6 +24,7 @@ import 'onboarding_screen.dart';
 import 'ofm/ofm_download_screen.dart';
 import 'ofm/ofm_chart_library_screen.dart';
 import 'openaip/openaip_download_screen.dart';
+import 'weather/open_meteo_settings_screen.dart';
 import 'services/backup_screen.dart';
 
 class CustomWidgetsBinding extends WidgetsFlutterBinding {
@@ -74,6 +75,7 @@ class MainApp extends StatelessWidget {
               '/ofm_download': (context) => const OfmDownloadScreen(),
               '/ofm_charts': (context) => const OfmChartLibraryScreen(),
               '/openaip': (context) => const OpenAipDownloadScreen(),
+              '/open_meteo': (context) => const OpenMeteoSettingsScreen(),
               '/documents': (context) => const DocumentsScreen(),
               '/checklists': (context) => const ChecklistScreen(),
               '/performance': (context) => const AircraftPerformanceScreen(),

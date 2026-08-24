@@ -321,6 +321,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                       ),
                       _buildMenuItem(
                         context,
+                        icon: Icons.air,
+                        title: "Open-Meteo Winds",
+                        subtitle: "Global winds aloft outside US coverage",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/open_meteo');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
                         icon: MdiIcons.fileDocument,
                         title: "Documents",
                         subtitle: "Weather, manuals, notes, tracks",
