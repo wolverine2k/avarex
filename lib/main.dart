@@ -1,25 +1,18 @@
 import 'package:avaremp/logbook/logbook_screen.dart';
 import 'package:avaremp/longpress_screen.dart';
 import 'package:avaremp/plan/plan_action_screen.dart';
-import 'package:avaremp/services/login_screen.dart';
-import 'package:avaremp/services/revenue_cat.dart';
 import 'package:avaremp/storage.dart';
 import 'package:avaremp/writing_screen.dart';
 import 'aircraft/aircraft_performance_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'ai/ai_screen.dart';
 import 'checklist/checklist_screen.dart';
-import 'community/community_screen.dart';
 import 'constants.dart';
 import 'destination/destination.dart';
 import 'documents_screen.dart';
 import 'chart/download_screen.dart';
-import 'firebase_options.dart';
 import 'io/io_screen.dart';
 import 'main_screen.dart';
-import 'scheduler/scheduler_screen.dart';
 import 'onboarding_screen.dart';
 import 'ofm/ofm_download_screen.dart';
 import 'ofm/ofm_chart_library_screen.dart';
@@ -27,7 +20,6 @@ import 'openaip/openaip_download_screen.dart';
 import 'weather/open_meteo_settings_screen.dart';
 import 'weather/flybrief_download_screen.dart';
 import 'weather/terrain_download_screen.dart';
-import 'services/backup_screen.dart';
 
 class CustomWidgetsBinding extends WidgetsFlutterBinding {
   @override
@@ -38,20 +30,6 @@ void main() {
   // this is to control cache. Nexrad needs it or image caching will make it impossible to animate weather
   CustomWidgetsBinding();
   Storage().init().then((accentColor) async {
-    if(Constants.shouldShowProServices) {
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        FirebaseUIAuth.configureProviders([
-          EmailAuthProvider(),
-        ]);
-        await RevenueCatService.initPlatformState();
-      }
-      catch (e) {
-        // ignore errors here
-      }
-    }
     runApp(const MainApp());
   });
 
@@ -84,14 +62,10 @@ class MainApp extends StatelessWidget {
               '/checklists': (context) => const ChecklistScreen(),
               '/performance': (context) => const AircraftPerformanceScreen(),
               '/logbook': (context) => const LogbookScreen(),
-              '/pro': (context) => const LoginScreen(),
               if(Constants.shouldShowBluetoothSpp) '/io': (context) => const IoScreen(),
               '/notes': (context) => const WritingScreen(),
               '/plan_actions': (context) => const PlanActionScreen(),
               '/ai': (context) => const AiScreen(),
-              '/backup': (context) => const BackupScreen(),
-              '/community': (context) => const CommunityScreen(),
-              '/scheduler': (context) => const SchedulerScreen(),
               '/popup': (context) {
                   final args = ModalRoute.of(context)!.settings.arguments as List<Destination>;
                   return LongPressScreen(destinations: args);

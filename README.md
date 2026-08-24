@@ -163,6 +163,45 @@ Europe. Where it has no coverage, the airport NOTAM tab falls back to
   attribution and are advisory only — always confirm against the official
   national briefing.
 
+### Radar mosaic (RainViewer)
+
+The built-in NEXRAD radar mosaic comes from the US ADS-B/GDL90 uplink and the
+Iowa Mesonet tile service, both of which only cover the United States. The EU
+build replaces the internet **Radar** product with a global, animated mosaic
+from [RainViewer](https://www.rainviewer.com/).
+
+- The **Radar** weather product (enable the **Weather** map layer, then the
+  weather-products control) shows composite radar reflectivity worldwide,
+  including Europe.
+- It is animated: RainViewer publishes the past two hours of frames at
+  10-minute steps, which the map loops through automatically. The frame slider
+  reflects the current position in the loop.
+- The color scheme is selectable. A **Radar colors** picker at the top of the
+  weather-products panel offers RainViewer's color schemes (Universal Blue,
+  The Weather Channel, NEXRAD Level III, and others); the choice is remembered
+  across sessions.
+- No key and no login are required — tiles are fetched from RainViewer's free
+  public API directly from the device.
+- Radar carries `Radar © RainViewer.com` attribution (shown on the map and in
+  the weather-products panel). It is composite third-party reflectivity, is
+  advisory only, and is not an authoritative FAA/NWS product or a substitute
+  for an official weather briefing.
+
+The US builds keep the existing NEXRAD/Iowa Mesonet radar unchanged. The source
+is selected at build time (`--dart-define=AVAREX_EU=false` restores the Mesonet
+mosaic).
+
+### Flight Intelligence (bring-your-own AI provider)
+
+The optional **Flight Intelligence** assistant is not tied to any bundled cloud
+account. The pilot supplies an OpenAI-compatible provider (base URL, optional
+API key, and model) under the assistant's settings; requests go straight from
+the device to that endpoint. The key is stored in platform secure storage and
+is never embedded in the app. Leaving it unconfigured simply disables the
+feature. This build ships without the former sign-in, subscription paywall, or
+Firebase-backed cloud features (backup/sync, community, scheduler); those have
+been removed rather than gated.
+
 ### Not available in open form (documented, not faked)
 
 Some parity items have no authoritative, machine-readable open source and are
@@ -233,7 +272,7 @@ implementation.
 | Airspace schedules and live activation | FAA products where available | Static metadata and `BY NOTAM` flags; no live activation feed | Partial |
 | METAR and TAF | Aviation Weather Center | International AWC reports where stations are covered | High |
 | Decoded METAR with VFR/IFR threat coloring | Plain-English decode with selectable profile | Same decode, geography-independent | Full |
-| Radar mosaic | US NEXRAD | No European radar provider integrated | None |
+| Radar mosaic | US NEXRAD | Global radar mosaic via RainViewer (animated, 2h loop) | High for display |
 | Winds aloft and graphical weather | US AWC/WPC products | Winds aloft from Open-Meteo pressure-level forecasts outside US coverage; no graphical products | Partial |
 | NOTAMs and temporary restrictions | FAA-specific services | Per-country georeferenced NOTAMs via FlyBrief, stored for offline use | Partial |
 | Terrain, elevation, and GPWS | US regional terrain packages | On-device terrain tiles transcoded per country from open DEM; enables terrain profile + GPWS | Partial |
@@ -246,7 +285,7 @@ implementation.
 European support is suitable for supplementary VFR situational awareness and
 direct waypoint navigation when the required regional data is installed. It is
 not equivalent to the US implementation for IFR procedures, legal preflight
-briefing, NOTAMs, terrain clearance, weather radar, or filing. Pilots remain
+briefing, NOTAMs, terrain clearance, or filing. Pilots remain
 responsible for obtaining current authoritative AIP, NOTAM, weather, and
 procedure information from the applicable national and European services.
 
@@ -261,10 +300,11 @@ procedure information from the applicable national and European services.
 - Neither OFM nor openAIP data is represented as certified.
 
 Known EU gaps and future options (not yet integrated): winds aloft outside US
-coverage is now provided by Open-Meteo and European NOTAMs by FlyBrief (both
-above). Meteostat surface observations, weather radar, terrain/GPWS outside the
-US, and IFR procedures/plates as georeferenced overlays remain open (see "Not
-available in open form").
+coverage is now provided by Open-Meteo, European NOTAMs by FlyBrief, and the
+radar mosaic by RainViewer (all above). Meteostat surface observations, other
+graphical weather products, terrain/GPWS outside the US, and IFR
+procedures/plates as georeferenced overlays remain open (see "Not available in
+open form").
 
 ## Getting Started
 
@@ -339,12 +379,12 @@ The changelist contains commits since the previous tag, is used as the GitHub
 release description, and is also included inside both source archives as
 `CHANGELOG-RELEASE.md`. The EU APK uses the release build configuration without
 requiring the Play Store signing secrets; it is intended for direct installation
-from the GitHub release. The workflow still uses the existing FAA-service and
-RevenueCat repository secrets. It deliberately
-builds with non-production Firebase placeholders, so no Firebase login or
-Firebase service-account secret is required and Firebase-backed cloud features
-are unavailable in the EU artifact. An openAIP API key is likewise not a build
-secret; each user supplies and securely stores a personal key in the application.
+from the GitHub release. The workflow uses the existing FAA-service repository
+secret. The EU build ships without Firebase or the subscription paywall, so no
+Firebase login, Firebase service-account secret, or RevenueCat key is required,
+and the former Firebase-backed cloud features are unavailable. An openAIP API
+key is likewise not a build secret; each user supplies and securely stores a
+personal key in the application. The RainViewer radar mosaic needs no key.
 
 Microsoft version scheme: pubspec.yaml (versions go like 1.0.9.0, last digit must be 0)
 

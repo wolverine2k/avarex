@@ -1,6 +1,5 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:avaremp/ai/ai_screen.dart';
-import 'package:avaremp/business/airport_businesses_gate.dart';
 import 'data/main_database_helper.dart';
 import 'data/aeronautical_database.dart';
 import 'package:avaremp/data/user_database_helper.dart';
@@ -74,7 +73,7 @@ class LongPressFuture {
 class LongPressScreenState extends State<LongPressScreen> {
 
   int _index = 0;
-  static const List<String> labels = ["Main", "AD", "METAR", "NOTAM", "SUA", "Wind", "ST", "Business"];
+  static const List<String> labels = ["Main", "AD", "METAR", "NOTAM", "SUA", "Wind", "ST"];
 
   late Future<LongPressFuture> _loadFuture;
 
@@ -386,7 +385,7 @@ class LongPressScreenState extends State<LongPressScreen> {
                       ),
                     ),
                   ),
-                  if (Constants.shouldShowProServices && lines.isNotEmpty)
+                  if (Constants.shouldShowAi && lines.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Align(
@@ -547,16 +546,6 @@ class LongPressScreenState extends State<LongPressScreen> {
             ),
         ],
       );
-    }
-
-    // Build the Business tab for any airport. All cloud/Firebase logic lives
-    // in AirportBusinessesTab; this screen only decides whether the platform
-    // supports the feature. It is never gated by Pro.
-    final bool isAirport = showDestination is AirportDestination;
-    if (isAirport && AirportBusinessesGate.available) {
-      pages[labels.indexOf("Business")] = AirportBusinessesTab(
-          airport: showDestination.locationID,
-          origin: showDestination.coordinate);
     }
 
     return Scaffold(

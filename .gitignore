@@ -69,3 +69,6 @@ android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 macos/Runner/GoogleService-Info.plist
 
+# oh-my-codex local agent workspace (not part of the app)
+.omc/
+

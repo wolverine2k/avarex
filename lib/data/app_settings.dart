@@ -468,4 +468,14 @@ class AppSettings {
     provider.setString("key-weather-products-opacity-v2", opacity.map((double e) => e.toString()).toList().join(","));
   }
 
+  /// RainViewer radar color scheme ID (0..8). Only used by the EU build's
+  /// internet Radar product. Defaults to 4 (The Weather Channel).
+  int getRadarColorScheme() {
+    return (provider.getValue("key-rainviewer-color-scheme", defaultValue: 4) as int);
+  }
+
+  void setRadarColorScheme(int id) {
+    provider.setInt("key-rainviewer-color-scheme", id);
+  }
+
 }

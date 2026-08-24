@@ -82,7 +82,6 @@ jobs:
         shell: bash
         env:
           FAA_NMS_API_CLIENT_ID_SECRET: ${{ secrets.FAA_NMS_API_CLIENT_ID_SECRET }}
-          ANDROID_REVENUECAT_API_KEY: ${{ secrets.ANDROID_REVENUECAT_API_KEY }}
         run: |
           set -euo pipefail
           python3 -c "
@@ -91,7 +90,6 @@ jobs:
 
           replacements = {
               '@@__faa_nms_api_client_id_secret__@@': os.environ.get('FAA_NMS_API_CLIENT_ID_SECRET', ''),
-              '@@___revenuecat_android_api_key__@@': os.environ.get('ANDROID_REVENUECAT_API_KEY', ''),
           }
           for path in Path('.').rglob('*.dart'):
               text = path.read_text(encoding='utf-8')
@@ -104,82 +102,6 @@ jobs:
 
       - name: Install project dependencies
         run: flutter pub get
-
-      - name: Create non-production Firebase placeholders
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p android/app
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          Path('android/app/google-services.json').write_text(json.dumps({
-              'project_info': {
-                  'project_number': '000000000000',
-                  'project_id': 'avarex-eu-no-firebase',
-                  'storage_bucket': 'avarex-eu-no-firebase.appspot.com',
-              },
-              'client': [{
-                  'client_info': {
-                      'mobilesdk_app_id': '1:000000000000:android:0000000000000000000000',
-                      'android_client_info': {'package_name': 'com.naresh.avarex.eu'},
-                  },
-                  'api_key': [{'current_key': 'not-a-real-firebase-key'}],
-              }],
-              'configuration_version': '1',
-          }))
-
-          Path('lib/firebase_options.dart').write_text('''
-          import 'package:firebase_core/firebase_core.dart';
-          import 'package:flutter/foundation.dart'
-              show TargetPlatform, defaultTargetPlatform, kIsWeb;
-
-          class DefaultFirebaseOptions {
-            static FirebaseOptions get currentPlatform {
-              if (kIsWeb) return web;
-              switch (defaultTargetPlatform) {
-                case TargetPlatform.android:
-                  return android;
-                case TargetPlatform.iOS:
-                  return ios;
-                case TargetPlatform.macOS:
-                  return macos;
-                case TargetPlatform.windows:
-                  return windows;
-                default:
-                  return android;
-              }
-            }
-
-            static const android = FirebaseOptions(
-              apiKey: 'not-a-real-firebase-key',
-              appId: '1:000000000000:android:0000000000000000000000',
-              messagingSenderId: '000000000000',
-              projectId: 'avarex-eu-no-firebase',
-              storageBucket: 'avarex-eu-no-firebase.appspot.com',
-            );
-            static const ios = FirebaseOptions(
-              apiKey: 'not-a-real-firebase-key',
-              appId: '1:000000000000:ios:0000000000000000000000',
-              messagingSenderId: '000000000000',
-              projectId: 'avarex-eu-no-firebase',
-              storageBucket: 'avarex-eu-no-firebase.appspot.com',
-              iosBundleId: 'com.apps4av.avaremp',
-            );
-            static const macos = ios;
-            static const web = FirebaseOptions(
-              apiKey: 'not-a-real-firebase-key',
-              appId: '1:000000000000:web:0000000000000000000000',
-              messagingSenderId: '000000000000',
-              projectId: 'avarex-eu-no-firebase',
-              authDomain: 'avarex-eu-no-firebase.firebaseapp.com',
-              storageBucket: 'avarex-eu-no-firebase.appspot.com',
-            );
-            static const windows = web;
-          }
-          ''')
-          PY
 
       - name: Run tests and analyzer
         run: |
