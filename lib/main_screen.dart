@@ -430,6 +430,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                             }
                           },
                         ),
+                      _buildMenuItem(
+                        context,
+                        icon: Icons.info_outline,
+                        title: "About & Credits",
+                        subtitle: "Version, data sources & licenses",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/about');
+                        },
+                      ),
                     ],
                   ),
                 ),

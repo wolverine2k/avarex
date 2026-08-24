@@ -5,6 +5,7 @@ import 'package:avaremp/storage.dart';
 import 'package:avaremp/writing_screen.dart';
 import 'aircraft/aircraft_performance_screen.dart';
 import 'package:flutter/material.dart';
+import 'about_screen.dart';
 import 'ai/ai_screen.dart';
 import 'checklist/checklist_screen.dart';
 import 'constants.dart';
@@ -66,6 +67,7 @@ class MainApp extends StatelessWidget {
               '/notes': (context) => const WritingScreen(),
               '/plan_actions': (context) => const PlanActionScreen(),
               '/ai': (context) => const AiScreen(),
+              '/about': (context) => const AboutScreen(),
               '/popup': (context) {
                   final args = ModalRoute.of(context)!.settings.arguments as List<Destination>;
                   return LongPressScreen(destinations: args);
