@@ -195,21 +195,38 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_STORE_PASS }}
         run: |
           set -euo pipefail
-          RELEASE_APK="build/app/outputs/apk/release/app-release.apk"
-          if [[ ! -f "$RELEASE_APK" ]]; then
-            echo "Expected release APK was not generated at $RELEASE_APK"
+          # Without a Gradle signingConfig the release output is named
+          # app-release-unsigned.apk; with one it's app-release.apk. Accept
+          # either (this step signs it regardless via apksigner).
+          RELEASE_APK=""
+          for candidate in \
+            "build/app/outputs/apk/release/app-release.apk" \
+            "build/app/outputs/apk/release/app-release-unsigned.apk" \
+            "build/app/outputs/flutter-apk/app-release.apk"; do
+            if [[ -f "$candidate" ]]; then
+              RELEASE_APK="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$RELEASE_APK" ]]; then
+            echo "No release APK was generated under build/app/outputs"
             find build/app/outputs -type f -name '*.apk' -print || true
             exit 1
           fi
+          echo "Using release APK: $RELEASE_APK"
 
-          BUILD_TOOLS_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/build-tools/34.0.0"
-          ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
-          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          # Locate zipalign/apksigner from whatever build-tools version the
+          # runner has (the pinned 34.0.0 is not guaranteed to be installed).
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          ZIPALIGN="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name zipalign 2>/dev/null | sort -V | tail -1 || true)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name apksigner 2>/dev/null | sort -V | tail -1 || true)"
           if [[ ! -x "$ZIPALIGN" || ! -x "$APKSIGNER" ]]; then
-            echo "Android build-tools 34.0.0 signing tools were not found in $BUILD_TOOLS_DIR"
-            find "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}/build-tools" -maxdepth 2 -type f \( -name zipalign -o -name apksigner \) -print || true
+            echo "Android build-tools signing utilities were not found under $SDK_ROOT/build-tools"
+            find "$SDK_ROOT/build-tools" -maxdepth 2 -type f \( -name zipalign -o -name apksigner \) -print || true
             exit 1
           fi
+          echo "Using zipalign: $ZIPALIGN"
+          echo "Using apksigner: $APKSIGNER"
 
           ALIGNED_APK="dist/AvareX-EU-$TAG-aligned.apk"
           "$ZIPALIGN" -f -p 4 "$RELEASE_APK" "$ALIGNED_APK"
