@@ -209,7 +209,15 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "dist/$APK_NAME"
 
           # --- Sign the AAB (jarsigner; apksigner does not handle AABs) ---
+          # `flutter build appbundle` already signs the bundle via Gradle's
+          # signingConfig (debug cert in CI, since there is no key.properties).
+          # jarsigner ADDS a signature rather than replacing it, so signing the
+          # bundle as-is leaves TWO certificate chains in META-INF and Play
+          # rejects it with "more than 1 certificate chain". Strip any existing
+          # signature block first so the bundle carries exactly one chain.
           cp "$RELEASE_AAB" "dist/$AAB_NAME"
+          zip -qd "dist/$AAB_NAME" 'META-INF/*.RSA' 'META-INF/*.DSA' \
+            'META-INF/*.EC' 'META-INF/*.SF' 2>/dev/null || true
           jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore "$KEYSTORE" -storepass "$KS_STOREPASS" -keypass "$KS_KEYPASS" \
             "dist/$AAB_NAME" "$KS_ALIAS"
