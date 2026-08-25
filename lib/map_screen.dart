@@ -14,6 +14,8 @@ import 'package:avaremp/utils/app_log.dart';
 import 'package:avaremp/destination/airport.dart';
 import 'package:avaremp/documents_screen.dart';
 import 'package:avaremp/gdl90/nexrad_cache.dart';
+import 'package:avaremp/gdl90/opensky_credentials.dart';
+import 'package:avaremp/gdl90/opensky_service.dart';
 import 'package:avaremp/gdl90/traffic_cache.dart';
 import 'package:avaremp/utils/compass_rose.dart';
 import 'package:avaremp/utils/geo_calculations.dart';
@@ -121,6 +123,11 @@ class MapScreenState extends State<MapScreen> {
   // Periodic RainViewer index refresh (EU build only).
   Timer? _rainViewerTimer;
 
+  // Periodic OpenSky internet-traffic poll (active only when the pilot has
+  // enabled it with their own credentials). Advisory only.
+  Timer? _openSkyTimer;
+  bool _openSkyActive = false;
+
   final TileLayer _topoLayer = TileLayer(
     maxNativeZoom: 16,
     keepBuffer: 1, // hold fewer off-screen tiles decoded in memory
@@ -191,6 +198,14 @@ class MapScreenState extends State<MapScreen> {
       _rainViewerTimer = Timer.periodic(
           const Duration(minutes: 5), (_) => RainViewerRadar.instance.refresh());
     }
+    // Optional internet (ADS-B) traffic via OpenSky, using the pilot's own
+    // credentials. Polls only when enabled; the service self-throttles and
+    // no-ops when disabled/unconfigured. Advisory only.
+    _refreshOpenSkyActive();
+    _openSkyTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
+      await OpenSkyService.instance.poll();
+      _refreshOpenSkyActive();
+    });
     // load vector tiles
     _mbtilesManager.loadMBTiles(PathUtils.getFilePath(Storage().dataDir, PathUtils.getFilePath("maps", "nasr.mbtiles")));
     _ofmMapLayer.loadInstalled(Storage().dataDir).then((loaded) {
@@ -216,6 +231,7 @@ class MapScreenState extends State<MapScreen> {
     OpenAipChanges.notifier.removeListener(_openAipChanged);
     _previousPosition = null;
     _rainViewerTimer?.cancel();
+    _openSkyTimer?.cancel();
     _mbtilesManager.close();
     _ofmMapLayer.close();
     super.dispose();
@@ -224,6 +240,17 @@ class MapScreenState extends State<MapScreen> {
   void _ofmChanged() {
     _ofmMapLayer.loadInstalled(Storage().dataDir, force: true).then((_) {
       if (mounted) setState(() {});
+    });
+  }
+
+  // Refreshes whether the OpenSky internet-traffic layer is currently active
+  // (enabled + credentials present), for the advisory banner. Cheap; reads
+  // secure storage off the poll timer.
+  void _refreshOpenSkyActive() {
+    const OpenSkyCredentials().isActive().then((active) {
+      if (mounted && active != _openSkyActive) {
+        setState(() => _openSkyActive = active);
+      }
     });
   }
 
@@ -1580,6 +1607,38 @@ class MapScreenState extends State<MapScreen> {
                         color: Theme.of(context).colorScheme.onSurface,
                         backgroundColor:
                             Theme.of(context).scaffoldBackgroundColor.withAlpha(160),
+                      ),
+                    ),
+                  ),
+                ),
+              // Internet-traffic advisory banner: shown only when the OpenSky
+              // layer is active AND the Traffic map layer is on. Internet
+              // traffic is delayed/incomplete and not for separation.
+              if (_openSkyActive && _layersOpacity[_layers.indexOf("Traffic")] > 0)
+                Positioned(
+                  top: Constants.screenHeightForInstruments(context) + 4,
+                  left: 6,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer.withAlpha(210),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.wifi_tethering, size: 12,
+                              color: Theme.of(context).colorScheme.onErrorContainer),
+                          const SizedBox(width: 4),
+                          Text(
+                            "Internet traffic (OpenSky) — advisory, delayed; not for separation",
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'about_screen.dart';
 import 'ai/ai_screen.dart';
 import 'checklist/checklist_screen.dart';
+import 'gdl90/opensky_settings_screen.dart';
 import 'constants.dart';
 import 'destination/destination.dart';
 import 'documents_screen.dart';
@@ -68,6 +69,7 @@ class MainApp extends StatelessWidget {
               '/plan_actions': (context) => const PlanActionScreen(),
               '/ai': (context) => const AiScreen(),
               '/about': (context) => const AboutScreen(),
+              '/opensky': (context) => const OpenSkySettingsScreen(),
               '/popup': (context) {
                   final args = ModalRoute.of(context)!.settings.arguments as List<Destination>;
                   return LongPressScreen(destinations: args);

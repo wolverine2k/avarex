@@ -341,6 +341,16 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver { //
                       ),
                       _buildMenuItem(
                         context,
+                        icon: MdiIcons.airplaneMarker,
+                        title: "Internet Traffic (OpenSky)",
+                        subtitle: "Advisory ADS-B traffic without hardware",
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/opensky');
+                        },
+                      ),
+                      _buildMenuItem(
+                        context,
                         icon: Icons.terrain,
                         title: "Terrain (Elevation)",
                         subtitle: "Build offline terrain/GPWS by country",
