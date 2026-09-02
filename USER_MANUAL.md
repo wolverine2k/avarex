@@ -177,7 +177,7 @@ Layer list from settings (with per-layer opacity 0-100%):
 | Layer | Description |
 |-------|-------------|
 | **Nav** | Route lines (cyan=passed, purple=current, gray=next), runway depiction, waypoint markers/labels, ownship symbol, wind barb, north indicator. |
-| **Circles** | Range rings (10/5/2 NM black rings), speed ring (blue, 1-minute travel distance), glide circle (purple, power-off glide range) + labels. The 10 NM ring carries a magnetic compass rose with ticks every 5° and labels at `N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`. |
+| **Circles** | Range rings (10/5/2 NM black rings), speed ring (blue, 1-minute travel distance), glide circle (purple, power-off glide range at the selected aircraft's best glide speed) + labels. The 10 NM ring carries a magnetic compass rose with ticks every 5° and labels at `N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`. |
 | **Chart** | Downloaded FAA chart tiles (offline chart base). |
 | **Vector Map** | NASR vector tiles from MBTiles files, with Class B/C/D airspace and SUA (MOA, Restricted, Warning, Alert, Prohibited, NSA) rendered with standard aviation colors. |
 | **CAP Grid** | Civil Air Patrol grid overlay with grid identifiers (e.g., BOS42, SEA123). Only visible at zoom level 9+. |
@@ -757,13 +757,15 @@ Enter conditions to calculate takeoff performance:
 - **Pressure Altitude** (ft)
 - **Temperature** (°C)
 - **Weight** (lbs)
-- **Headwind** (kts, negative for tailwind)
+- **Headwind** (negative for tailwind)
 
 Results show:
-- Ground Roll distance (ft)
-- Distance to clear 50ft obstacle (ft)
+- Ground Roll
+- Distance to clear 50ft obstacle
 - Density altitude (ft) — computed as pressure altitude plus 120 × (OAT − ISA temperature), with ISA 15°C at sea level and −2°C per 1000 ft pressure altitude
 - Soft field adjustments (if configured)
+
+Speed and distance values follow the app unit setting (onboarding) and are shown without unit suffixes.
 
 #### Landing Tab
 
@@ -774,13 +776,15 @@ Enter conditions to calculate landing performance:
 - **Pressure Altitude** (ft)
 - **Temperature** (°C)
 - **Weight** (lbs)
-- **Headwind** (kts, negative for tailwind)
+- **Headwind** (negative for tailwind)
 
 Results show:
-- Ground Roll distance (ft)
-- Distance to clear 50ft obstacle (ft)
+- Ground Roll
+- Distance to clear 50ft obstacle
 - Density altitude (ft) — same formula as takeoff (OAT vs ISA at that pressure altitude)
 - Soft field adjustments (if configured)
+
+Speed and distance values follow the app unit setting and are shown without unit suffixes.
 
 #### Cruise Tab
 
@@ -794,8 +798,11 @@ Enter cruise conditions:
 Below altitude and temperature deviation, the screen shows **density altitude** (ft) for those inputs (read-only).
 
 Results show:
-- True Airspeed (KTAS)
+- True Airspeed
 - Fuel Flow (GPH)
+- Range (with 45 min reserve)
+
+Speed and range follow the app unit setting and are shown without unit suffixes.
 
 #### W&B Tab
 
@@ -846,6 +853,11 @@ Create and manage your saved aircraft profiles:
 - Equipment codes, Surveillance codes
 - Cruise Speed, Fuel Endurance
 - Other Information
+
+**Glide circle (MAP `Circles` layer):**
+- **Best Glide Speed** — POH best-glide speed of the **selected** aircraft (Performance dropdown). Used instead of current GPS ground speed. Entered in the same speed units as the rest of the app (onboarding unit setting).
+- **Sink Rate** (fpm) — power-off sink rate at best glide
+- If Best Glide Speed is empty, Cruise Speed is used; if that is also empty, 65 is assumed.
 
 **Performance Data:**
 - Max Gross Weight, Usable Fuel, Empty Weight
@@ -1310,6 +1322,7 @@ This is the most common cause of "AvareX traffic doesn't work" on iPhone/iPad an
 | Get airport satellite view | `PLATE tab → Plate selector → APS-AERIAL VIEW (Get)` |
 | Delete airport satellite view | `PLATE tab → Plate selector → APS-AERIAL VIEW → trash icon` |
 | Configure aircraft | `MAP → Menu → Aircraft & Performance → My Aircraft tab` |
+| Set best glide / sink rate | `MAP → Menu → Aircraft & Performance → My Aircraft tab` (Best Glide Speed, Sink Rate) |
 | Change aircraft map icon | `MAP → Menu → Aircraft & Performance → My Aircraft tab → icon dropdown` |
 | Checklist operations | `MAP → Menu → Check Lists` |
 | Weight and balance | `MAP → Menu → Aircraft & Performance → W&B tab` |
@@ -1770,7 +1783,7 @@ The navigation log gives you per-leg headings, magnetic variation, wind correcti
    - **Pressure Altitude** (ft)
    - **Temperature** (°C)
    - **Takeoff Weight** (lbs)
-   - **Headwind** (kts, use a negative value for a tailwind)
+   - **Headwind** (use a negative value for a tailwind)
 5. View calculated **Ground Roll**, **Over 50ft Obstacle**, and **Density Altitude** distances at the top of the screen.
 6. Switch to the **L/D** tab and repeat for landing performance.
 
@@ -1909,7 +1922,7 @@ If the IFD has an ADS-B receiver, AvareX also picks up its **Capstone** ADS-B tr
 - In the `Circles` layer:
   - **Black rings**: fixed 2/5/10 NM reference rings; the 10 NM ring is marked with a magnetic compass rose (ticks every 5°, labels at `N` / `NE` / `E` / `SE` / `S` / `SW` / `W` / `NW`)
   - **Blue ring**: speed-based 1-minute travel distance
-  - **Purple ring**: glide circle based on aircraft sink rate, winds aloft, terrain, and altitude
+  - **Purple ring**: glide circle based on the selected aircraft's best glide speed and sink rate, plus winds aloft, terrain, and altitude
 - Source thread:  
   `https://groups.google.com/g/apps4av-forum/c/VJ0S3ejWPC8`
 

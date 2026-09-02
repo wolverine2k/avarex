@@ -992,12 +992,6 @@ class MapScreenState extends State<MapScreen> {
                           backgroundColor: Constants.bottomNavBarBackgroundColor,
                           child: const Text("2", style: TextStyle(fontSize: 14,
                             color: Colors.white,),)))),
-                  Marker(point: Storage().area.glideProfile.getGlidePoint(),
-                      width: 64,
-                      child: Transform.rotate(
-                          angle: labelAngle, child:
-                      AutoSizeText(Storage().area.glideProfile.label, style: TextStyle(
-                            color: Colors.white, backgroundColor: Constants.bottomNavBarBackgroundColor),))),
                 ],
               );
             },

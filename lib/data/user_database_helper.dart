@@ -90,7 +90,7 @@ class UserDatabaseHelper {
     return
       await openDatabase(
           path,
-          version: 7,
+          version: 8,
           onUpgrade: (Database db, int oldVersion, int newVersion) async {
             if (oldVersion <= 4 && newVersion > 4) {
               await db.execute("create table aiQueries("
@@ -124,6 +124,12 @@ class UserDatabaseHelper {
                   "ALTER TABLE aircraft ADD COLUMN icon TEXT DEFAULT 'plane';");
               await db.execute(
                   "ALTER TABLE aircraft ADD COLUMN wnbData TEXT DEFAULT '';");
+            }
+
+            // Migration to version 8: Best glide speed for the map glide circle
+            if (oldVersion <= 7 && newVersion > 7) {
+              await db.execute(
+                  "ALTER TABLE aircraft ADD COLUMN bestGlide TEXT DEFAULT '';");
             }
           },
 
@@ -223,6 +229,7 @@ class UserDatabaseHelper {
                 "pic          text, "
                 "picInfo      text, "
                 "sinkRate     text, "
+                "bestGlide    text, "
                 "fuelBurn     text, "
                 "base         text, "
                 "other        text, "

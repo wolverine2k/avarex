@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:avaremp/aircraft/aircraft.dart';
-import 'package:avaremp/data/user_database_helper.dart';
 import 'package:avaremp/place/elevation_cache.dart';
 import 'package:avaremp/utils/geo_calculations.dart';
 import 'package:avaremp/io/gps.dart';
@@ -11,7 +10,6 @@ import 'package:latlong2/latlong.dart';
 class GlideProfile {
   // Members that get set at object construction
   final List<double?> _distanceTotal;
-  String _label = "";
 
   static const int _directionSteps = 30;
   static const double _feetPerNm = 6076.12;
@@ -28,8 +26,6 @@ class GlideProfile {
     }
     return GeoCalculations().calculateOffset(ret, distance, 0 * _stepSizeDirection.toDouble());
   }
-
-  String get label => _label;
 
   List<LatLng> getGlideCircle() {
     GeoCalculations geoCalc = GeoCalculations();
@@ -53,24 +49,24 @@ class GlideProfile {
   void updateGlide() async {
 
     // units in feet and seconds
-    double currentSpeed = Storage().position.speed * _feetPerMeter; // feet per second
     double altitudeGps = Storage().position.altitude * _feetPerMeter; // feet
     double heading = Storage().position.heading; // track true north
     LatLng ll = Gps.toLatLng(Storage().position);
     _distanceTotal.fillRange(0, _directionSteps, null);
-    _label = "";
 
-    List<Aircraft> aircraftList = await UserDatabaseHelper.db.getAllAircraft();
-    if(aircraftList.isEmpty) {
+    Aircraft? aircraft = await Aircraft.getActiveAircraft();
+    if(aircraft == null) {
       return; // no aircraft, cannot compute glide
     }
-    double sinkRate = (double.tryParse(aircraftList[0].sinkRate) ?? 100) / 60.0; // feet per second (sink rate was fpm if not specified use 100 fpm)
+    double sinkRate = (double.tryParse(aircraft.sinkRate) ?? 100) / 60.0; // feet per second (sink rate was fpm if not specified use 100 fpm)
+    // Best glide of the active airplane in app speed units (not GPS ground speed).
+    final double bestGlideSpeed = aircraft.bestGlideSpeed * Storage().units.toMps * _feetPerMeter;
 
     WindsAloft? wa = Storage().area.windsAloft;
     if(null == wa) {
       return; // no winds aloft, cannot compute glide
     }
-    // calculate airspeed from ground speed, direction, and wind speed.
+    // calculate airspeed from best glide ground speed, direction, and wind speed.
     double? wSpeed;
     double? wAngle;
     (wAngle, wSpeed) = wa.getWindAtAltitude(altitudeGps);
@@ -81,10 +77,8 @@ class GlideProfile {
     // convert wind speed to feet per second from knots
     wSpeed = (wSpeed * _feetPerNm) / 3600.0;
 
-    (double, double) t = WindTriangle.getTrueFromGroundAndWind(heading, currentSpeed, wAngle, wSpeed);
+    (double, double) t = WindTriangle.getTrueFromGroundAndWind(heading, bestGlideSpeed, wAngle, wSpeed);
     final double asT = t.$2; // true airspeed in feet per second
-    double asToShow = GeoCalculations.convertSpeed(asT * Storage().units.fToM);
-    _label = "${asToShow.round()}@${t.$1.round().toString()}\u00B0";
 
     // calculate winds from current altitude to ground.
     for (int dir = 0; dir < _directionSteps; dir++) {
